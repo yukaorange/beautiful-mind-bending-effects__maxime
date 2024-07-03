@@ -16,10 +16,6 @@ void main() {
 
   vec2 uv = gl_FragCoord.xy / uResolution.xy;
 
-  uv -= vec2(0.5);
-  uv.x *= uAspect;
-  uv += vec2(0.5);
-
   vec4 color = fromLinear(texture2D(uTexture, uv));
 
   gl_FragColor = color;

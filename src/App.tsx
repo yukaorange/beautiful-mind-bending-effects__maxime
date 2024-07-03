@@ -12,7 +12,7 @@ const App = () => {
       <Loader />
       <MenuButton />
       <Sns />
-      <Canvas shadows camera={{ position: [0, 0, 4] }} dpr={[1, 2]}>
+      <Canvas shadows camera={{ position: [0, 0, 9] }} dpr={[1, 2]}>
         <Suspense fallback={null}>
           <OrbitControls />
           <Experience />

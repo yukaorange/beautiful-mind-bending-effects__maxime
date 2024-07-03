@@ -5,27 +5,33 @@ import {
   ContactShadows,
   PerspectiveCamera,
   OrbitControls,
+  useTexture,
 } from '@react-three/drei'
 import { useFrame, createPortal } from '@react-three/fiber'
 import { Leva, useControls } from 'leva'
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import * as THREE from 'three'
 
 import vertexShader from '@/shaders/vertexshader.glsl'
 import fragmentShader from '@/shaders/fragmentshader.glsl'
+import { attach } from '@react-three/fiber/dist/declarations/src/core/utils'
 
 type Material = THREE.MeshBasicMaterial | THREE.MeshPhysicalMaterial | undefined
 
+type Cylinder = THREE.Mesh<
+  THREE.BufferGeometry,
+  THREE.Material | THREE.Material[]
+> | null
+
 export const Experience = (): JSX.Element => {
-  const mesh1 = useRef<THREE.Mesh>(null)
-  const mesh2 = useRef<THREE.Mesh>(null)
-  const mesh3 = useRef<THREE.Mesh>(null)
-  const mesh4 = useRef<THREE.Mesh>(null)
+  const torus = useRef<THREE.Mesh>(null)
+  const box = useRef<THREE.Mesh>(null)
+  const cylinder1 = useRef<Cylinder>(null)
+  const cylinder2 = useRef<Cylinder>(null)
 
-  const lens = useRef<THREE.Mesh>(null)
-
-  const renderTarget = useFBO()
+  const renderTarget1 = useFBO()
+  const renderTarget2 = useFBO()
 
   const uniforms = useMemo(() => {
     return {
@@ -44,170 +50,201 @@ export const Experience = (): JSX.Element => {
     }
   }, [])
 
+  const updateUniforms = () => {
+    const resolution = new THREE.Vector2(
+      window.innerWidth,
+      window.innerHeight,
+    ).multiplyScalar(Math.min(window.devicePixelRatio, 2))
+
+    uniforms.uResolution.value = resolution
+
+    if (cylinder1.current && Array.isArray(cylinder1.current.material)) {
+      cylinder1.current.material.forEach((material) => {
+        if (material.type === 'ShaderMaterial') {
+          ;(material as THREE.ShaderMaterial).uniforms.uResolution.value =
+            resolution
+        }
+      })
+    }
+
+    if (cylinder2.current && Array.isArray(cylinder2.current.material)) {
+      cylinder2.current.material.forEach((material) => {
+        if (material.type === 'ShaderMaterial') {
+          ;(material as THREE.ShaderMaterial).uniforms.uResolution.value =
+            resolution
+        }
+      })
+    }
+  }
+
+  useEffect(() => {
+    window.addEventListener('resize', updateUniforms)
+    return () => window.removeEventListener('resize', updateUniforms)
+  }, [])
+
   useFrame((state) => {
-    const { gl, clock, scene, camera, pointer } = state
+    const { gl, clock, scene, camera } = state
 
-    const viewport = state.viewport.getCurrentViewport(state.camera, [0, 0, 2])
+    camera.position.x = Math.sin(clock.getElapsedTime() * 0.1) * 15
+    camera.position.z = Math.cos(clock.getElapsedTime() * 0.1) * 15
+    // camera.position.x = Math.sin(Math.PI / 2) * 15
+    // camera.position.z = Math.cos(Math.PI / 2) * 15
 
-    if (lens.current) {
-      lens.current.position.x = THREE.MathUtils.lerp(
-        lens.current.position.x,
-        (pointer.x * viewport.width) / 2,
-        0.1,
-      )
+    const resolution = new THREE.Vector2(
+      window.innerWidth,
+      window.innerHeight,
+    ).multiplyScalar(Math.min(window.devicePixelRatio, 2))
 
-      lens.current.position.y = THREE.MathUtils.lerp(
-        lens.current.position.y,
-        (pointer.y * viewport.height) / 2,
-        0.1,
-      )
+    if (cylinder1.current && Array.isArray(cylinder1.current.material)) {
+      cylinder1.current.material.forEach((material) => {
+        material.type == 'shaderMaterial'
+          ? ((material as THREE.ShaderMaterial).uniforms.uResolution.value =
+              new THREE.Vector2(
+                window.innerWidth,
+                window.innerHeight,
+              ).multiplyScalar(Math.min(window.devicePixelRatio, 2)))
+          : null
+      })
     }
 
-    let oldMaterialMesh3
-    let oldMaterialMesh4
-
-    if (mesh3.current) {
-      oldMaterialMesh3 = mesh3.current.material
+    if (cylinder2.current && Array.isArray(cylinder2.current.material)) {
+      cylinder2.current.material.forEach((material) => {
+        material.type == 'shaderMaterial'
+          ? ((material as THREE.ShaderMaterial).uniforms.uResolution.value =
+              new THREE.Vector2(
+                window.innerWidth,
+                window.innerHeight,
+              ).multiplyScalar(Math.min(window.devicePixelRatio, 2)))
+          : null
+      })
     }
 
-    if (mesh4.current) {
-      oldMaterialMesh4 = mesh4.current.material
-    }
+    torus.current && (torus.current.visible = false)
+    box.current && (box.current.visible = true)
 
-    mesh1.current && (mesh1.current.visible = false)
-
-    mesh2.current && (mesh2.current.visible = true)
-
-    if (mesh3.current) {
-      mesh3.current.material = new THREE.MeshBasicMaterial()
-
-      const material3 = mesh3.current.material as THREE.MeshBasicMaterial
-
-      material3.color = new THREE.Color('#000000')
-
-      material3.wireframe = true
-    }
-
-    if (mesh4.current) {
-      mesh4.current.material = new THREE.MeshBasicMaterial()
-
-      const material4 = mesh4.current.material as THREE.MeshBasicMaterial
-
-      material4.color = new THREE.Color('#000000')
-
-      material4.wireframe = true
-    }
-
-    gl.setRenderTarget(renderTarget)
-
+    gl.setRenderTarget(renderTarget1)
     gl.render(scene, camera)
 
-    if (lens.current) {
-      const lensMaterial = lens.current.material as THREE.ShaderMaterial
+    torus.current && (torus.current.visible = true)
+    box.current && (box.current.visible = false)
 
-      lensMaterial.uniforms.uTexture.value = renderTarget.texture
-
-      lensMaterial.uniforms.uResolution.value = new THREE.Vector2(
-        window.innerWidth,
-        window.innerHeight,
-      ).multiplyScalar(Math.min(window.devicePixelRatio, 2))
-    }
-
-    mesh1.current && (mesh1.current.visible = true)
-    mesh2.current && (mesh2.current.visible = false)
-
-    if (mesh3.current && oldMaterialMesh3) {
-      mesh3.current.material = oldMaterialMesh3
-
-      const material3 = mesh3.current.material as THREE.MeshBasicMaterial
-
-      material3.wireframe = false
-    }
-
-    if (mesh4.current && oldMaterialMesh4) {
-      mesh4.current.material = oldMaterialMesh4
-
-      const material4 = mesh4.current.material as THREE.MeshBasicMaterial
-
-      material4.wireframe = false
-    }
-
-    if (mesh1.current) {
-      mesh1.current.rotation.x = Math.cos(clock.elapsedTime / 2)
-      mesh1.current.rotation.y = Math.sin(clock.elapsedTime / 2)
-      mesh1.current.rotation.z = Math.sin(clock.elapsedTime / 2)
-    }
-
-    if (mesh2.current) {
-      mesh2.current.rotation.x = Math.cos(clock.elapsedTime / 2)
-      mesh2.current.rotation.y = Math.sin(clock.elapsedTime / 2)
-      mesh2.current.rotation.z = Math.sin(clock.elapsedTime / 2)
-    }
+    gl.setRenderTarget(renderTarget2)
+    gl.render(scene, camera)
 
     gl.setRenderTarget(null)
+
+    const newPositionZ = Math.sin(clock.elapsedTime)
+
+    box.current && (box.current.position.z = newPositionZ)
+    torus.current && (torus.current.position.z = newPositionZ)
   })
 
   return (
     <>
-      <Sky sunPosition={[10, 10, 0]} />
-      <Environment preset="sunset" />
-      <directionalLight args={[10, 10]} intensity={1} />
+      <color attach="background" args={['#000000']} />
+      <directionalLight args={[5, 5]} intensity={1} />
       <ambientLight intensity={0.5} />
-      <ContactShadows
-        frames={1}
-        scale={10}
-        position={[0, -2, 0]}
-        blur={4}
-        opacity={0.2}
-      />
-      <mesh ref={lens} scale={0.5} position={[0, 0, 2.5]}>
-        <sphereGeometry args={[1, 128]} />
+      {/* cylinder */}
+      <mesh
+        ref={cylinder1}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, -4]}
+      >
+        <cylinderGeometry args={[5, 5, 8, 32]} />
         <shaderMaterial
           key={uuidv4()}
-          fragmentShader={fragmentShader}
           vertexShader={vertexShader}
-          uniforms={uniforms}
-          wireframe={false}
+          fragmentShader={fragmentShader}
+          uniforms={{
+            ...uniforms,
+            uTexture: {
+              value: renderTarget1.texture,
+            },
+          }}
+          attach="material-0"
+        />
+        <shaderMaterial
+          key={uuidv4()}
+          vertexShader={vertexShader}
+          fragmentShader={fragmentShader}
+          uniforms={{
+            ...uniforms,
+            uTexture: {
+              value: renderTarget1.texture,
+            },
+          }}
+          attach="material-1"
+        />
+        <meshStandardMaterial
+          attach="material-2"
+          color="green"
+          transparent
+          opacity={0}
         />
       </mesh>
-      <group>
-        <mesh ref={mesh2}>
-          <torusGeometry args={[1, 0.25, 16, 100]} />
-          <meshPhysicalMaterial
-            roughness={0}
-            clearcoat={1}
-            clearcoatRoughness={0}
-            color="#73B9ED"
-          />
-        </mesh>
-        <mesh ref={mesh1}>
-          <dodecahedronGeometry args={[1]} />
-          <meshPhysicalMaterial
-            roughness={0}
-            clearcoat={1}
-            clearcoatRoughness={0}
-            color="#73B9ED"
-          />
-        </mesh>
-        <mesh ref={mesh3} position={[-3, 1, -2]}>
-          <icosahedronGeometry args={[1, 8]} />
-          <meshPhysicalMaterial
-            roughness={0}
-            clearcoat={1}
-            clearcoatRoughness={0}
-            color="#73B9ED"
-          />
-        </mesh>
-        <mesh ref={mesh4} position={[3, -1, -2]}>
-          <icosahedronGeometry args={[1, 8]} />
-          <meshPhysicalMaterial
-            roughness={0}
-            clearcoat={1}
-            clearcoatRoughness={0}
-            color="#73B9ED"
-          />
-        </mesh>
-      </group>
+      {/* cylinder */}
+      <mesh
+        ref={cylinder2}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, 4]}
+      >
+        <cylinderGeometry args={[5, 5, 8, 32]} />
+        <shaderMaterial
+          key={uuidv4()}
+          vertexShader={vertexShader}
+          fragmentShader={fragmentShader}
+          uniforms={{
+            ...uniforms,
+            uTexture: {
+              value: renderTarget2.texture,
+            },
+          }}
+          attach="material-0"
+        />
+        <meshStandardMaterial
+          attach="material-1"
+          color="green"
+          transparent
+          opacity={0}
+        />
+        <shaderMaterial
+          key={uuidv4()}
+          vertexShader={vertexShader}
+          fragmentShader={fragmentShader}
+          uniforms={{
+            ...uniforms,
+            uTexture: {
+              value: renderTarget2.texture,
+            },
+          }}
+          attach="material-2"
+        />
+      </mesh>
+      {/* torus */}
+      <mesh>
+        <torusGeometry args={[5, 0.008, 100, 100]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+      {/* torusknot */}
+      <mesh ref={torus} position={[0, 0, 0]}>
+        <torusKnotGeometry args={[0.75, 0.3, 100, 16]} />
+        <meshPhysicalMaterial
+          roughness={0}
+          clearcoat={1}
+          clearcoatRoughness={0}
+          color="#73B9ED"
+        />
+      </mesh>
+      {/* box */}
+      <mesh ref={box} position={[0, 0, 0]}>
+        <boxGeometry args={[1.5, 1.5, 1.5]} />
+        <meshPhysicalMaterial
+          roughness={0}
+          clearcoat={1}
+          clearcoatRoughness={0}
+          color="#73B9ED"
+        />
+      </mesh>
     </>
   )
 }
