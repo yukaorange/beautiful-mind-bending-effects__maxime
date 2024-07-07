@@ -85,8 +85,8 @@ export const Experience = (): JSX.Element => {
   useFrame((state) => {
     const { gl, clock, scene, camera } = state
 
-    camera.position.x = Math.sin(clock.getElapsedTime() * 0.1) * 15
-    camera.position.z = Math.cos(clock.getElapsedTime() * 0.1) * 15
+    camera.position.x = Math.sin(clock.getElapsedTime()) * 15
+    camera.position.z = Math.cos(clock.getElapsedTime()) * 15
     // camera.position.x = Math.sin(Math.PI / 2) * 15
     // camera.position.z = Math.cos(Math.PI / 2) * 15
 
@@ -133,7 +133,8 @@ export const Experience = (): JSX.Element => {
 
     gl.setRenderTarget(null)
 
-    const newPositionZ = Math.sin(clock.elapsedTime)
+    // const newPositionZ = Math.sin(clock.elapsedTime)
+    const newPositionZ = 0
 
     box.current && (box.current.position.z = newPositionZ)
     torus.current && (torus.current.position.z = newPositionZ)
@@ -222,7 +223,7 @@ export const Experience = (): JSX.Element => {
       </mesh>
       {/* torus */}
       <mesh>
-        <torusGeometry args={[5, 0.008, 100, 100]} />
+        <torusGeometry args={[5, 0.02, 100, 100]} />
         <meshStandardMaterial color="white" />
       </mesh>
       {/* torusknot */}
